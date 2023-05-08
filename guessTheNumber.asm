@@ -1,4 +1,3 @@
-#this code will generate a random int and then we will make the user try to guess it untill he get the right guess
 #DATA SECTION
 
 .data 
@@ -11,13 +10,20 @@ correct_guess: .asciiz "your guess is correct\n"
 .globl main
 main:
 #we will generate a random int and store it in $t0
-li $v0,42
+li $v0, 40     # service number 40 initializes the RNG
+li $a0, 31    #sets generation seed
+syscall
+
+li $v0, 41         # system call 42 is not valid in MARS; we will skip this instruction
 syscall
 move $t0,$v0
-#now we will make the number between 0 and 10
-andi $t0,$t0,0x0000000A
+#now we will make the number between 0 and 16
+andi $t0,$t0,0x0000000f
 #now we will make the user guess the number
 #we will store the guess in $t1
+
+#load the address of the "your guess is wrong" message outside the loop
+la $a0, guess
 
 #we will make a loop that will make the user guess the number untill he get it right
 loop:
@@ -29,7 +35,6 @@ move $t1,$v0
 beq $t1,$t0,correct
 #now we will print a message that the guess is wrong
 li $v0,4
-la $a0,guess
 syscall
 j loop
 #now we will print a message that the guess is correct
