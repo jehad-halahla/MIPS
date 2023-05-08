@@ -15,7 +15,7 @@ main:
 
 li $v0,13
 la $a0,fileNameW
-li $a1,1
+li $a1, 9           # file flags for append mode
 syscall
 move $t2,$v0 #save the file descriptor in a temp register
 
@@ -50,6 +50,10 @@ syscall
 #we will close the file so the contents update
 li $v0,16
 move $a0,$t2
+syscall 
+
+li $v0,16
+move $a0,$t1
 syscall 
 
 #END OF CODE SECTION
