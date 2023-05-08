@@ -33,7 +33,8 @@ move $a0,$t1
 la $a1,line
 li $a2,1024
 syscall
-
+#store number of characters read in the file for write later!
+move $t3,$v0
 #now wo will print the buffer "line" that now contains contents of file up to 1024 characters
 li $v0,4
 la $a0,line
@@ -44,7 +45,7 @@ syscall
 li $v0,15
 move $a0,$t2
 la $a1,line
-li $a2,1024
+move $a2,$t3
 syscall
 
 #we will close the file so the contents update
