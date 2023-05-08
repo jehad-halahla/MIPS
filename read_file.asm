@@ -4,8 +4,8 @@
 #DATA SECTION
 .data
 .align 2
-fileNameW: .asciiz "/home/jehad_halahla/Desktop/mips_32_programming/write.txt"  
-fileName: .asciiz "/home/jehad_halahla/Desktop/mips_32_programming/read.txt" #it is prefered to use absolute paths
+fileNameW: .asciiz "write.txt"  
+fileName: .asciiz "read.txt" #it is prefered to use absolute paths
 line: .space 1024
 
 #CODE SECTION
@@ -44,7 +44,7 @@ syscall
 li $v0,15
 move $a0,$t2
 la $a1,line
-li $a2,20
+li $a2,1024
 syscall
 
 #we will close the file so the contents update
