@@ -1,3 +1,5 @@
 # idont want to push .txt files
 
 *.txt
+#we will ignore anything in the folder with .jar extension
+*.jar
