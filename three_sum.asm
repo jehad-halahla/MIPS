@@ -1,5 +1,6 @@
 .data
 prompt: .asciiz "please enter 3 numbers\n"
+#just trying to pull edited
 
 .text 
  .globl main
