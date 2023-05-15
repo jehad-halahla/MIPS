@@ -8,6 +8,7 @@ main:
 print_str(" 1.does the dictionary.txt file exist or not Y/N.\n")
 
 #load Y/N from the terminal 
+take_option:
 li $v0,8
 la $a0,option
 li $a1,100
@@ -19,7 +20,6 @@ move $t0, $a0
 lb $t1, ($t0)
 # Compare $t1 with ASCII code for "Y"
 
-take_option:
 xori  $t2,$t1,'Y'
 xori $t3,$t1,'y'
 and $t3,$t3,$t2
@@ -32,7 +32,7 @@ beqz $t3,answer_is_no
 
 
 
-print_str("doesn't match\n")
+print_str("input doesn't match...please enter y/n..\n")
 
 j take_option
 
