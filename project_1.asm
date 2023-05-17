@@ -98,16 +98,57 @@ default_dictionary:
     j take_option
 
 answer_is_compress:
- print_str("answer is compression....\n")
+ print_str("please enter the file path to compress.\n")
+ j end_error_message
+ error_message:
+ print_str("file doesn't exist...please enter file path again.\n")
+end_error_message:
  #we will first count the number of words in the file
-  jal count_words_in_file_contents
+  #jal count_words_in_file_contents
     #print the number of words in the file
-    li $v0,1
-    addiu $s1,$s1,1
-    move $a0,$s1
+     #Read file path from user input
+    li $v0, 8
+    la $a0, compression_path
+    li $a1, 256
     syscall
-    print_str(" words in the file\n")
-    j take_option
+   	la $a0,compression_path
+	jal DeleteNewLine
+    # Open file for reading
+    li $v0, 13
+    la $a0, compression_path
+    li $a1, 0
+    syscall
+    move $s1, $v0 #file descriptor for file to read from
+    #if file doesn't exist then print error message and take file path again
+    beq $v0, -1, error_message        
+    #we will load the file contents into buffer and print it
+    li $v0, 14
+    move $a0, $s1
+    la $a1, c_file_contents
+    li $a2, 4096
+    syscall
+    print_str("file contents:\n")
+    li $v0, 4
+    la $a0, c_file_contents
+    syscall
+    # Close the file
+    li $v0, 16
+    move $a0, $s1
+    syscall
+
+    la $a0, c_file_contents
+    jal count_words_in_file_contents
+    #print the number of words in the file
+    print_str("there are \n")
+    li $v0, 1
+    move $a0, $s1
+    syscall
+    print_str(" words in the file.\n")
+    #now we will create an array of words
+    #we will assume that the file contents are stored in c_file_contents
+    
+
+     j take_option
 
     
 end_option:
@@ -156,7 +197,8 @@ count_words_in_file_contents:
     #we will assume that the file contents are stored in file_contents
     #we will count the number of words in the file and store it in $s1
     #we will also assume that each char that is not alphabetic is a word
-    la $t0,file_contents
+    move $t0,$a0
+    li $s1,0
 loop_count:
     lb $t1,($t0)
     beqz $t1,done_counting
@@ -187,4 +229,6 @@ dictionary_path:	.asciiz   "dictionary.txt"
 option:	.space 100              #Allocate memory for file path buffer
 file_path:      .space 256           # Allocate memory for file path buffer
 file_contents:  .space 4096          # Allocate memory for file contents
+compression_path: .space 256        #path to the file that we want to compress
+c_file_contents: .space 4096        #path to the compressed file
 array:	.space 1024
