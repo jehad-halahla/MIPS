@@ -162,17 +162,19 @@ end_error_message:
     li $v0, 16
     move $a0, $s1
     syscall
-
-    la $a0, c_file_contents
-    jal count_words_in_file_contents
+    #now we will count the number of words in the file
+    #jal count_words
     #print the number of words in the file
-    print_str("there are \n")
-    li $v0, 1
-    move $a0, $s1
-    syscall
-    print_str(" words in the file.\n")
-    #now we will create an array of words
-    #we will assume that the file contents are stored in c_file_contents
+   # print_str("there are ")
+   # li $v0, 1
+   # move $a0, $s1
+   # syscall
+   # print_str(" words in the file.\n")
+    #now we will store the words in the array
+    la $a0,c_file_contents
+    jal store_words_in_array
+    #now we will print the array
+    jal print_array
      j take_option
 answer_is_decompress:
     print_str("please enter the file path to decompress.\n")
@@ -224,35 +226,39 @@ print_menu:
     print_str(" 5.quit the program (quit/q) case insensitve\n")
     jr $ra
 
-count_words_in_file_contents:
-    #we will assume that the file contents are stored in file_contents
-    #we will count the number of words in the file and store it in $s1
-    #we will also assume that each char that is not alphabetic is a word
-    move $t0,$a0
-    li $s1,0
-loop_count:
-    lb $t1,($t0)
-    beqz $t1,done_counting
-    beq $t1,' ',is_space
-    beq $t1,'\n',is_space
-    beq $t1,'\t',is_space
-    beq $t1,'\r',is_space
-    beq $t1,'.',is_space
-    beq $t1,',',is_space
-    beq $t1,';',is_space
-    beq $t1,':',is_space
-    beq $t1,'!',is_space
-    beq $t1,'?',is_space
-    beq $t1,'-',is_space
-    beq $t1,'_',is_space
-    addi $t0,$t0,1
-	j loop_count
-is_space:
-    addi $s1,$s1,1
-    addi $t0,$t0,1
-    j loop_count
-done_counting:
-    jr $ra
+count_words:
+#each special character is a word
+#keep taking characters from a to z and A to Z
+#if a special character is found then increment the counter
+move $t0,$a0
+li $s1,0
+li $s2,0 #if there is a space then s2 > 1
+count_chars:
+lb $t1,($t0)
+beq $t1,' ',space_found
+returns_from_space_found:
+beqz $t1,done_counting_words
+sge $t2,$t1,'a'
+sle $t3,$t1,'z'
+and $t2,$t2,$t3 #the char is alphabetical
+sge $t3,$t1,'A'
+sle $t4,$t1,'Z'
+and $t3,$t3,$t4 #the char is alphabetical
+or $t2,$t2,$t3 #the char is alphabetical
+beqz $t2,not_alphabetical
+addi $t0,$t0,1
+j count_chars
+not_alphabetical:
+addi $s1,$s1,1
+addi $t0,$t0,1
+j count_chars
+space_found:
+seq $s2,$t1,' ' #if space is found then s2 ==  1
+j returns_from_space_found
+done_counting_words:
+#if space is found then increment the counter
+addu $s1,$s1,$s2
+jr $ra
 
 #we will write a proc that compares input choice with the options
 #and returns the corresponding value
@@ -285,6 +291,96 @@ done_compare:
     move $v0,$t2
 jr $ra
 
+#procedure to store words in the array
+#procedure to store words in the array
+#procedure to store words in the array
+store_words_in_array:
+    la $t0, array_from_buffer  # array address
+    li $t6, 0                  # word count
+    li $t8, 0                  #index
+    la $t1, c_file_contents    # buffer address
+
+store_loop:
+    lb $t2, ($t1)              # load character from buffer
+    beqz $t2, done_storing_words_1  # if null character, exit loop
+    beq $t2, '\n', done_storing_words_1  # if newline character, exit loop
+    sge $t3, $t2, 'a'          # check if the character is alphabetical
+    sle $t4, $t2, 'z'
+    and $t3, $t3, $t4
+    sge $t4, $t2, 'A'
+    sle $t5, $t2, 'Z'
+    and $t4, $t4, $t5
+    or $t3, $t3, $t4           # the character is alphabetical if not zero
+
+    beqz $t3, not_alphabetical_1  # if the character is not alphabetical, skip storing
+    sb $t2, ($t0)              # store the character in the array
+    addi $t0, $t0, 1           # move to the next byte within the current array cell
+    addi $t1, $t1, 1           # move to the next character
+    j store_loop               # jump to the beginning of the loop
+not_alphabetical_1:
+    addi $t8, $t8, 1           # increment index
+    #calculate the next word index and store the special character
+    li $t9,'\n'
+    sb $t9,($t0)
+    la $t0, array_from_buffer  # array address
+    sll $t7, $t8, 6            # calculate the word index
+    addu $t0, $t0, $t7         # move to the next array cell
+    sb $t2, ($t0)              # store the special character in the array
+    li $t2,'\n'
+    sb $t2,1($t0)
+    addi $t1, $t1, 1
+    addi $t8, $t8, 1  
+    la $t0, array_from_buffer  # array address
+    sll $t7, $t8, 6            # calculate the word index
+    addu $t0, $t0, $t7         # move to the next array cell
+               # move to the next character
+    j store_loop               # jump to the beginning of the loop
+done_storing_words_1:
+    jr $ra                     # return from the procedure
+
+
+
+#procedure to print the array
+print_array:
+    la $t0, array_from_buffer  # array address
+    li $t1, 0                  # initialize counter
+print_loop:
+    lb $t2, ($t0)              # load byte from array
+    beq $t2,'\n',new_word
+    beqz $t2, done_printing   # if null character, exit loop
+
+    li $v0, 11                # syscall code for printing a character
+    move $a0, $t2             # load the byte to print into $a0
+    syscall
+
+    addi $t0, $t0, 1          # move to the next byte in the array
+  
+
+    j print_loop              # jump to the beginning of the loop
+
+new_word:
+    addi $t1, $t1, 1          # increment counter
+    sll $t3, $t1, 6           # calculate the word index
+    la $t0,array_from_buffer
+    addu $t0, $t0, $t3        # move to the next array cell
+    j print_loop              # jump to the beginning of the loop
+
+done_printing:
+ li $v0, 11                # syscall code for printing a character
+    li $a0, '\n'            # load the byte to print into $a0
+    syscall
+    jr $ra
+
+
+
+
+
+
+
+
+
+
+
 
 #DATA SECTION
 .data
@@ -297,7 +393,9 @@ decompress:      .asciiz   "DECOMPRESS"
 quit:      .asciiz   "QUIT"
 option:	.space 100              #Allocate memory for file path buffer
 file_path:      .space 256           # Allocate memory for file path buffer
-file_contents:  .space 4096          # Allocate memory for file contents
+file_contents:  .space 2048          # Allocate memory for file contents
 compression_path: .space 256        #path to the file that we want to compress
-c_file_contents: .space 4096        #path to the compressed file
-array:	.space 1024
+c_file_contents: .space 2048        #path to the compressed file
+dictionary_array: .space 6400
+array_from_buffer: .space 3200 # can store up to 50 words at a t
+
