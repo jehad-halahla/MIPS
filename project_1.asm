@@ -56,13 +56,44 @@ j take_option
 
 answer_is_no:
     print_str("answer is no,creating new Dictionary named dictionary.txt...\n")
-    # Open file for reading
-    li $v0, 13
-    la $a0, dictionary_path
-    li $a1, 0
+     print_str("Enter the file name and path:")
+
+    # Read the file name and path from the terminal
+    li $v0, 8
+    la $a0, new_filename
+    li $a1, 256
     syscall
-    move $s0, $v0        # Save file descriptor in $s0
-j default_dictionary
+    la $a0,new_filename
+    jal DeleteNewLine
+    
+
+    # Open the file for writing
+    li $v0, 13             # Load the system call number for opening a file
+    la $a0, new_filename       # Load the address of the filename buffer
+    li $a1, 1              # Load the file access mode (1 for write-only)
+    li $a2, 0              # Load the file permission (not used in this case)
+    syscall                # Execute the system call
+
+    # Check if the file was successfully opened
+    bltz $v0, file_error   # Branch if $v0 < 0, indicating an error
+
+    # File was successfully opened
+    # $v0 contains the file descriptor
+
+    # Close the file
+    li $v0, 16             # Load the system call number for closing a file
+    move $a0, $v0          # Move the file descriptor to $a0
+    syscall                # Execute the system call
+
+    # Exit the program
+    li $v0, 10             # Load the system call number for exit
+    syscall                # Execute the system call
+
+file_error:
+    # An error occurred while opening the file
+    # Handle the error as desired
+    # Exit the program or display an error message
+    print_str("error") 
 answer_is_quit:
     print_str("thank you for using our program...\n")
 j end_program
@@ -301,3 +332,4 @@ file_contents:  .space 4096          # Allocate memory for file contents
 compression_path: .space 256        #path to the file that we want to compress
 c_file_contents: .space 4096        #path to the compressed file
 array:	.space 1024
+new_filename: .space 256   # Allocate space for the file name and path
