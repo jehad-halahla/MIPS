@@ -154,34 +154,69 @@ end_error_message:
     la $a1, c_file_contents
     li $a2, 4096
     syscall
-    print_str("file contents:\n")
-    li $v0, 4
-    la $a0, c_file_contents
-    syscall
     # Close the file
     li $v0, 16
     move $a0, $s1
     syscall
-    #now we will count the number of words in the file
-    #jal count_words
-    #print the number of words in the file
-   # print_str("there are ")
-   # li $v0, 1
-   # move $a0, $s1
-   # syscall
-   # print_str(" words in the file.\n")
-    #now we will store the words in the array
+    
     la $a0,c_file_contents
     jal store_words_in_array
     #now we will print the array
-    jal print_array
+    print_str("\n")
+    #jal print_array
+    print_str("\n")
+    #we will only add the words that are not in the dictionary
+    #we will first load the dictionary into the buffer
+    li $v0, 13
+    la $a0, dictionary_path
+    li $a1, 0
+    syscall
+    move $s0, $v0 # Save file descriptor in $s0
+    
+    #if it exists then load file contents into buffer
+    li $v0, 14
+    move $a0, $s0
+    la $a1, dictionary_buffer
+    li $a2, 6400
+    syscall
+    # Close the file
+    li $v0, 16
+    move $a0, $s0
+    syscall
+    #now we will compare the words in the array with the words in the dictionary
+    #if the word is not in the dictionary then we will add it to the dictionary
+    #we will use a procedure to compare each word in the array buffer with the words in the dictionary buffer
+    #we will use a procedure to add the word to the dictionary
+    la $a0,array_from_buffer
+    la $a1,dictionary_buffer #dictionary buffer address
+    jal check_if_word_is_in_dictionary
+    move $t0,$v0 #if t0 == 1 then the word is in the dictionary
+    print_str("\n")
+    #print if the word is in the dictionary or not
+    beqz $t0,word_not_found
+    print_str("word is in the dictionary\n")
+    j word_found
+
+word_not_found:
+    print_str("word is not in the dictionary...adding word\n")
+    #we will add the word to the end of the dictionary
+    #we will first find the end of the dictionary
+    #we will use a procedure to find the end of the dictionary and store the address in $v0
+    la $a0,array_from_buffer
+    la $a1,dictionary_buffer
+    jal append_word_to_dictionary
+
+word_found:
+
+
+    
+
+
      j take_option
 answer_is_decompress:
     print_str("please enter the file path to decompress.\n")
     j take_option
 
-
-    
 end_option:
 
 
@@ -292,8 +327,6 @@ done_compare:
 jr $ra
 
 #procedure to store words in the array
-#procedure to store words in the array
-#procedure to store words in the array
 store_words_in_array:
     la $t0, array_from_buffer  # array address
     li $t6, 0                  # word count
@@ -314,11 +347,11 @@ store_loop:
 
     beqz $t3, not_alphabetical_1  # if the character is not alphabetical, skip storing
     sb $t2, ($t0)              # store the character in the array
-    addi $t0, $t0, 1           # move to the next byte within the current array cell
-    addi $t1, $t1, 1           # move to the next character
+    addiu $t0, $t0, 1           # move to the next byte within the current array cell
+    addiu $t1, $t1, 1           # move to the next character
     j store_loop               # jump to the beginning of the loop
 not_alphabetical_1:
-    addi $t8, $t8, 1           # increment index
+    addiu $t8, $t8, 1           # increment index
     #calculate the next word index and store the special character
     li $t9,'\n'
     sb $t9,($t0)
@@ -328,8 +361,8 @@ not_alphabetical_1:
     sb $t2, ($t0)              # store the special character in the array
     li $t2,'\n'
     sb $t2,1($t0)
-    addi $t1, $t1, 1
-    addi $t8, $t8, 1  
+    addiu $t1, $t1, 1
+    addiu $t8, $t8, 1  
     la $t0, array_from_buffer  # array address
     sll $t7, $t8, 6            # calculate the word index
     addu $t0, $t0, $t7         # move to the next array cell
@@ -353,13 +386,13 @@ print_loop:
     move $a0, $t2             # load the byte to print into $a0
     syscall
 
-    addi $t0, $t0, 1          # move to the next byte in the array
+    addiu $t0, $t0, 1          # move to the next byte in the array
   
 
     j print_loop              # jump to the beginning of the loop
 
 new_word:
-    addi $t1, $t1, 1          # increment counter
+    addiu $t1, $t1, 1          # increment counter
     sll $t3, $t1, 6           # calculate the word index
     la $t0,array_from_buffer
     addu $t0, $t0, $t3        # move to the next array cell
@@ -370,18 +403,101 @@ done_printing:
     li $a0, '\n'            # load the byte to print into $a0
     syscall
     jr $ra
+check_if_word_is_in_dictionary:
+    # Input string in $a0 and string to compare with in $a1
+    move $t0, $a0  # Array address
+    move $t1, $a1  # Dictionary buffer address
+
+    # Initialize $t6 to 0, assuming the word is not in the dictionary
+restart_search:
+    li $t6, 1
+
+start_search:
+    lb $t3, ($t1)  # Load the current dictionary char
+    lb $t4, ($t0)  # Load the current array char
+    # If the dictionary word is done, we go to the next dictionary word
+    beq $t3, '\n', next_dictionary_word
+    beq $t4, '\n',next_dictionary_word
+
+    # If null character, exit loop
+    beqz $t4, done_search
+
+    seq $t5, $t3, $t4
+    and $t6, $t5, $t6  # Update the flag indicating if the word is in the dictionary
+    addiu $t0, $t0, 1
+    addiu $t1, $t1, 1
+    j start_search
+
+next_dictionary_word:
+    # If the current dict char is '\n', increment the dictionary address
+    # If the current dict char is not '\n', loop until you find '\n'
+    # If $t6 == 1, then the word is in the dictionary
+    #if t4 is not \n then words are not equal
+    seq $t5, $t4, '\n'
+    seq $t8,$t3,'\n'
+    and $t6, $t5, $t6
+    and $t8,$t6,$t8
+    bnez $t8, word_is_in_dictionary
+
+loop_until_newline:
+    lb $t3, ($t1)
+    beqz $t3, done_search  # Exit loop if null character is encountered
+    beq $t3, '\n', increment_dictionary_address
+    addiu $t1, $t1, 1
+    j loop_until_newline
+
+increment_dictionary_address:
+    move $t0, $a0
+    addiu $t1, $t1, 1
+    j restart_search
+    #we reset the array address to the beginning of the array
+
+word_is_in_dictionary:
+    # If $t6 == 1, then the word is in the dictionary
+    # If $t6 == 0, then the word is not in the dictionary
+    move $v0, $t6  # Set the return value to $t6 indicating if the word is in the dictionary
+    jr $ra
+
+done_search:
+    # If $t6 == 1, then the word is in the dictionary
+    # If $t6 == 0, then the word is not in the dictionary
+    move $v0, $t6  # Set the return value to $t6 indicating if the word is in the dictionary
+    jr $ra
+
+#procedure to find end of dictionary
+find_end_of_dictionary:
+    move $t0,$a1 #dictionary buffer address
+loop_find_end:
+    lb $t1,($t0)
+    beqz $t1,done_find_end
+    addiu $t0,$t0,1
+    j loop_find_end
+done_find_end:
+    move $v0,$t0
+    jr $ra
+
+#procedure to add word to dictionary
+append_word_to_dictionary:
+#word is stored in $a0
+#dictionary buffer address is stored in $a1
+#we will first find the end of the dictionary
+jal find_end_of_dictionary
+    move $t0,$v0 #end of dictionary address
+    move $t1,$a0 #word address
+append_loop:
+    lb $t2,($t1)
+    beqz $t2,done_append
+    sb $t2,($t0)
+    addiu $t0,$t0,1
+    addiu $t1,$t1,1
+    j append_loop
+done_append:
+    sb $zero,($t0)
+    jr $ra
 
 
 
-
-
-
-
-
-
-
-
-
+	
 #DATA SECTION
 .data
 
@@ -396,6 +512,6 @@ file_path:      .space 256           # Allocate memory for file path buffer
 file_contents:  .space 2048          # Allocate memory for file contents
 compression_path: .space 256        #path to the file that we want to compress
 c_file_contents: .space 2048        #path to the compressed file
-dictionary_array: .space 6400
-array_from_buffer: .space 3200 # can store up to 50 words at a t
+dictionary_buffer: .space 6400
+array_from_buffer: .space 3200 # can store up to 50 words 
 
