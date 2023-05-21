@@ -187,31 +187,84 @@ end_error_message:
     #if the word is not in the dictionary then we will add it to the dictionary
     #we will use a procedure to compare each word in the array buffer with the words in the dictionary buffer
     #we will use a procedure to add the word to the dictionary
-    la $a0,array_from_buffer
     la $a1,dictionary_buffer #dictionary buffer address
+    la $a0,array_from_buffer
+    lb $s3,0($a0)
+    beqz $s3,done_with_words
+    li $s0,0 #array index
+add_to_dictionary:
+    lb $s3,0($a0)
+    beqz $s3,done_with_words
     jal check_if_word_is_in_dictionary
+    addiu $s0,$s0,1
     move $t0,$v0 #if t0 == 1 then the word is in the dictionary
-    print_str("\n")
-    #print if the word is in the dictionary or not
     beqz $t0,word_not_found
-    print_str("word is in the dictionary\n")
     j word_found
-
 word_not_found:
-    print_str("word is not in the dictionary...adding word\n")
     #we will add the word to the end of the dictionary
     #we will first find the end of the dictionary
     #we will use a procedure to find the end of the dictionary and store the address in $v0
-    la $a0,array_from_buffer
-    la $a1,dictionary_buffer
+
     jal append_word_to_dictionary
+    #now we will print the dictionary buffer 
+    #increment the array address to the next word
+    la $t1, array_from_buffer  # array address
+    sll $s1, $s0, 6            # calculate the word index
+    addu $t1,$t1,$s1
+    move $a0,$t1
+    j add_to_dictionary
 
 word_found:
+    print_str("word found in dictionary...\n")
+    la $t1, array_from_buffer  # array address
+    sll $s1, $s0, 6            # calculate the word index
+    addu $t1,$t1,$s1
+    move $a0,$t1
+    j add_to_dictionary
+done_with_words:
+    #now we will print the dictionary buffer
+    print_str("all done\n")
+    li $v0,4
+    la $a0,dictionary_buffer
+    syscall
+    #we will write the dictionary to the file
+    # Open file for writing
+    li $v0, 13
+    la $a0, dictionary_path
+    li $a1, 1
+    li $a2, 0
+    syscall
 
-
+    move $s0, $v0        # Save file descriptor in $s0
+    # Write buffer contents to file
+    #we will make a loop to find length of the dictionary buffer
+    la $a0,dictionary_buffer
+    li $s2,0 #length of dictionary buffer
+loop_find_length:
+    lb $t1,($a0)
+    beqz $t1,done_find_length
+    addiu $a0,$a0,1
+    addiu $s2,$s2,1
+    j loop_find_length
+done_find_length: 
+    li $v0, 15
+    move $a0, $s0
+    la $a1, dictionary_buffer
+    move $a2, $s2
+    syscall
+    #close the file
+    li $v0, 16
+    move $a0, $s2
+    syscall
+    #now we will compress the file
+    
+    
     
 
 
+   
+
+    
      j take_option
 answer_is_decompress:
     print_str("please enter the file path to decompress.\n")
@@ -466,22 +519,27 @@ done_search:
 
 #procedure to find end of dictionary
 find_end_of_dictionary:
+#init a counter to 0
+    li $s5,0
     move $t0,$a1 #dictionary buffer address
 loop_find_end:
     lb $t1,($t0)
     beqz $t1,done_find_end
     addiu $t0,$t0,1
+    addiu $s5,$s5,1
     j loop_find_end
 done_find_end:
     move $v0,$t0
-    jr $ra
+    move $v1,$s5
+    b dict_end_found
 
 #procedure to add word to dictionary
 append_word_to_dictionary:
 #word is stored in $a0
 #dictionary buffer address is stored in $a1
 #we will first find the end of the dictionary
-jal find_end_of_dictionary
+    b find_end_of_dictionary
+dict_end_found:
     move $t0,$v0 #end of dictionary address
     move $t1,$a0 #word address
 append_loop:
@@ -492,7 +550,11 @@ append_loop:
     addiu $t1,$t1,1
     j append_loop
 done_append:
-    sb $zero,($t0)
+    sb $zero,1($t0)
+    move $s2,$t0 #dictionary buffer address
+    move $t1,$a0
+    #number of charachters is stored in $t1
+    #address difference is stored in $t3
     jr $ra
 
 
