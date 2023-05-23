@@ -1,3 +1,10 @@
+#	this code was written by: jehad halahla, masa itmazi
+#	last edit May 22 23:45
+#	ID: 1201467, 1200814
+#
+#	PROJECT IS ALMOST COMPLETE !
+#
+#############################################################
 #INCLUDE SECTION 
 .include "macros.asm"
 
@@ -55,20 +62,51 @@ jal print_menu
 j take_option
 
 answer_is_no:
+
     print_str("answer is no,creating new Dictionary named dictionary.txt...\n")
-    # Open file for reading
-    li $v0, 13
-    la $a0, dictionary_path
-    li $a1, 0
+     print_str("Enter the file name and path:")
+     
+    # Read the file name and path from the terminal
+    li $v0, 8
+    la $a0, new_file_path
+    li $a1, 256
     syscall
-    move $s0, $v0        # Save file descriptor in $s0
-j default_dictionary
+    la $a0,new_file_path
+    jal DeleteNewLine
+    
+
+    # Open the file for writing
+    li $v0, 13             # Load the system call number for opening a file
+    la $a0, new_file_path       # Load the address of the filename buffer
+    li $a1, 1              # Load the file access mode (1 for write-only)
+    li $a2, 0              # Load the file permission (not used in this case)
+    syscall                # Execute the system call
+
+    # Check if the file was successfully opened
+    bltz $v0, file_error   # Branch if $v0 < 0, indicating an error
+    blez $v0, take_option
+j take_option
+    # File was successfully opened
+    # $v0 contains the file descriptor
+
+    # Close the file
+    li $v0, 16             # Load the system call number for closing a file
+    move $a0, $v0          # Move the file descriptor to $a0
+    syscall                # Execute the system call
+ 
+
+file_error:
+    # An error occurred while opening the file
+    #display an error message
+    print_str("error while creating new file please enter file name and path again ") 
+     j answer_is_no
+
 answer_is_quit:
     print_str("thank you for using our program...\n")
 j end_program
 
 answer_is_yes:
-	print_str("please enter file path:\n")
+	print_str("please enter dictionary path:\n")
 	 #Read file path from user input
     li $v0, 8
     la $a0, file_path
@@ -88,12 +126,12 @@ answer_is_yes:
     #if it exists then load file contents into buffer
     li $v0, 14
     move $a0, $s0
-    la $a1, file_contents
+    la $a1, dictionary_buffer
     li $a2, 4096
     syscall
-    print_str("file contents:\n")
+    print_str("dictionary contents:\n")
     li $v0, 4
-    la $a0, file_contents
+    la $a0, dictionary_buffer
     syscall
     # Close the file
     li $v0, 16
@@ -104,24 +142,6 @@ error_message_2:
     print_str("file doesn't exist...please enter file path again.\n")
     j answer_is_yes
  no_problem:
-    j take_option
-
-default_dictionary:
-    #load file contents into buffer
-    li $v0, 14
-    move $a0, $s0
-    la $a1, file_contents
-    li $a2, 4096
-    syscall
-    print_str("file contents:\n")
-    li $v0, 4
-    la $a0, file_contents
-    syscall
-
-    # Close the file
-    li $v0, 16
-    move $a0, $s0   
-    syscall
     j take_option
 
 answer_is_compress:
@@ -161,32 +181,11 @@ end_error_message:
     
     la $a0,c_file_contents
     jal store_words_in_array
-    #now we will print the array
     print_str("\n")
-    #jal print_array
     print_str("\n")
+
     #we will only add the words that are not in the dictionary
-    #we will first load the dictionary into the buffer
-    li $v0, 13
-    la $a0, dictionary_path
-    li $a1, 0
-    syscall
-    move $s0, $v0 # Save file descriptor in $s0
-    
-    #if it exists then load file contents into buffer
-    li $v0, 14
-    move $a0, $s0
-    la $a1, dictionary_buffer
-    li $a2, 6400
-    syscall
-    # Close the file
-    li $v0, 16
-    move $a0, $s0
-    syscall
-    #now we will compare the words in the array with the words in the dictionary
-    #if the word is not in the dictionary then we will add it to the dictionary
-    #we will use a procedure to compare each word in the array buffer with the words in the dictionary buffer
-    #we will use a procedure to add the word to the dictionary
+
     la $a1,dictionary_buffer #dictionary buffer address
     la $a0,array_from_buffer
     lb $s3,0($a0)
@@ -204,7 +203,6 @@ word_not_found:
     #we will add the word to the end of the dictionary
     #we will first find the end of the dictionary
     #we will use a procedure to find the end of the dictionary and store the address in $v0
-
     jal append_word_to_dictionary
     #now we will print the dictionary buffer 
     #increment the array address to the next word
@@ -215,18 +213,19 @@ word_not_found:
     j add_to_dictionary
 
 word_found:
-    print_str("word found in dictionary...\n")
+    #we will add the code of the word to the codes array
+    #line number is in $v1
+    #we will store the code as a 2 byte number in the codes array
+    move $s4,$s0
+    subiu $s4,$s0,1
+    sb $v1,codes_array($s4)
     la $t1, array_from_buffer  # array address
     sll $s1, $s0, 6            # calculate the word index
     addu $t1,$t1,$s1
     move $a0,$t1
     j add_to_dictionary
 done_with_words:
-    #now we will print the dictionary buffer
-    print_str("all done\n")
-    li $v0,4
-    la $a0,dictionary_buffer
-    syscall
+    print_str("\n all done \n")
     #we will write the dictionary to the file
     # Open file for writing
     li $v0, 13
@@ -240,6 +239,7 @@ done_with_words:
     #we will make a loop to find length of the dictionary buffer
     la $a0,dictionary_buffer
     li $s2,0 #length of dictionary buffer
+
 loop_find_length:
     lb $t1,($a0)
     beqz $t1,done_find_length
@@ -247,6 +247,7 @@ loop_find_length:
     addiu $s2,$s2,1
     j loop_find_length
 done_find_length: 
+
     li $v0, 15
     move $a0, $s0
     la $a1, dictionary_buffer
@@ -256,51 +257,175 @@ done_find_length:
     li $v0, 16
     move $a0, $s2
     syscall
-    #now we will compress the file
-    
-    
-    
 
+    #now we will compress the file by first generating a code for each word in the array
+    la $a0,codes_array        
+    #we will use a procedure to convert to hex
+    la $a1,hex_codes
+    la $a2,codes_array
+    li $s1,0 #index
+loop_converter:
+    lb $t1,($a2)
+    beqz $t1,done_converting
+    move $a0,$t1
+    jal convertToHex
+    addiu $a2,$a2,1
+    addiu $s1,$s1,1
+    #we will also advance the hex_codes address
+    la $a1,hex_codes
+    sll $t2,$s1,3
+    addu $a1,$a1,$t2
+    j loop_converter
+done_converting:
 
-   
+    #we have the index so we can now write the codes array to the file
 
-    
-     j take_option
-answer_is_decompress:
-    print_str("please enter the file path to decompress.\n")
-    j take_option
+    move $t0,$s1 #index
 
-end_option:
-
-
-    # Display output message
-
-    print_str("File contents:\n")
-    # Read file contents
-    li $v0, 14
-    move $a0, $s0
-    la $a1, file_contents
-    li $a2, 4096
+    #calculate the size using index and sll
+    sll $t1,$t0,3
+    li $v0, 13
+    la $a0, compressed_file_path
+    li $a1, 1
     syscall
+    move $s0, $v0        # Save file descriptor in $s0
+    #we will write the codes array to the file
+    li $v0, 15
+    move $a0, $s0
+    la $a1, hex_codes
+    move $a2, $t1
+    syscall
+    #close the file
+    li $v0, 16
+    move $a0, $s0
+    syscall  
 
-    # Close the file
+    #we will calculate the compression ratio
+    #size of compressed file is the number of codes * 2
+    sll $t2,$t0,1 #size of compressed file
+    #we will loop in the c_file_contents array and count the number of characters to find uncompressed file size
+    la $a0,c_file_contents
+    li $t3,0
+count_letters:
+    lb $t1,($a0)
+    beqz $t1,done_counting_letters
+    addiu $a0,$a0,1
+    addiu $t3,$t3,1
+    j count_letters
+done_counting_letters:
+    #we will use floating point division to calculate the compression ratio
+    sll $t3,$t3,1
+    mtc1 $t2,$f0
+    mtc1 $t3,$f2
+    cvt.s.w $f0,$f0
+    cvt.s.w $f2,$f2
+    div.s $f4,$f2,$f0
+   
+    #we will print the compression ratio
+    print_str("compression ratio is:\n")
+    li $v0, 2
+    mov.s $f12,$f2
+    syscall
+    print_str("%\n")
+
+
+     j take_option
+
+answer_is_decompress:
+    print_str("output at decompressed.txt....\n")
+   
+    #we will itterate over codes and get the corresponding word from the dictionary
+    la $a0,codes_array
+    la $a1,dictionary_buffer
+    la $a2,decompression_buffer
+
+move $t0,$a0 #codes buffer address
+
+loop_decompress:
+    lb $t1,($t0)
+    beqz $t1,done_decompressing
+    #now $t1 has the line that we need
+    #we will itterate over the dictionary and find the word
+    move $t4,$a1 #we will save the dictionary buffer address in $t4
+    li $s2,1 #index
+loop_dictionary:
+    lb $t2,($t4)
+    beqz $t2,loop_decompressing
+    beq $t1,$s2,got_word
+loop_untill_line:
+    lb $t2,($t4)
+    beq $t2,'\n',increment_index
+    addiu $t4,$t4,1
+    j loop_untill_line
+increment_index:
+    addiu $s2,$s2,1
+    addiu $t4,$t4,1
+    j loop_dictionary
+got_word:
+    #loop store word in decompression buffer
+    move $t5,$t4
+loop_store_word:
+    lb $t6,($t5)
+    beq $t6,'\n',loop_decompressing
+    sb $t6,($a2)
+    addiu $t5,$t5,1
+    addiu $a2,$a2,1
+    j loop_store_word
+loop_decompressing:
+    addiu $t0,$t0,1
+    j loop_decompress
+done_decompressing:
+     #we will open the file for writing
+    li $v0, 13
+    la $a0, decompressed_file
+    li $a1, 1
+    syscall
+    move $s0, $v0        # Save file descriptor in $s0
+    # Write buffer contents to file
+    la $a0,c_file_contents
+    li $t3,0
+count_letters_1:
+    lb $t1,($a0)
+    beqz $t1,done_counting_letters_1
+    addiu $a0,$a0,1
+    addiu $t3,$t3,1
+    j count_letters_1
+done_counting_letters_1:
+    #length is in $t3
+
+    li $v0, 15
+    move $a0, $s0
+    la $a1, decompression_buffer
+    move $a2, $t3
+    syscall
+    #close the file
     li $v0, 16
     move $a0, $s0
     syscall
+    
+    j take_option
+
+    
+
 end_program:
     # Exit program
     terminate(0)
     
-    
+
+
 DeleteNewLine:
 	lb $t0,($a0)
 	beq $t0,'\n',here
 	addi $a0,$a0,1
 	j DeleteNewLine
-	
+
+#PROCEDURES SECTION
+
 here:
 	sb $zero,($a0)
 	jr $ra
+
+
 
 print_menu:
     print_str("Welcome to our compression program...\n")
@@ -313,6 +438,7 @@ print_menu:
     print_str(" 4.choose compression or decompression:\n")
     print_str(" 5.quit the program (quit/q) case insensitve\n")
     jr $ra
+print_menu_end:
 
 count_words:
 #each special character is a word
@@ -347,6 +473,8 @@ done_counting_words:
 #if space is found then increment the counter
 addu $s1,$s1,$s2
 jr $ra
+count_words_end:
+
 
 #we will write a proc that compares input choice with the options
 #and returns the corresponding value
@@ -378,6 +506,7 @@ not_equal:
 done_compare:
     move $v0,$t2
 jr $ra
+compare_strings_with_case_end:
 
 #procedure to store words in the array
 store_words_in_array:
@@ -422,47 +551,22 @@ not_alphabetical_1:
                # move to the next character
     j store_loop               # jump to the beginning of the loop
 done_storing_words_1:
+    #end the last word with a \n
+    li $t2,'\n'
+    sb $t2,($t0)
+    sb $zero,1($t0)
     jr $ra                     # return from the procedure
+store_words_in_array_end:
 
 
-
-#procedure to print the array
-print_array:
-    la $t0, array_from_buffer  # array address
-    li $t1, 0                  # initialize counter
-print_loop:
-    lb $t2, ($t0)              # load byte from array
-    beq $t2,'\n',new_word
-    beqz $t2, done_printing   # if null character, exit loop
-
-    li $v0, 11                # syscall code for printing a character
-    move $a0, $t2             # load the byte to print into $a0
-    syscall
-
-    addiu $t0, $t0, 1          # move to the next byte in the array
-  
-
-    j print_loop              # jump to the beginning of the loop
-
-new_word:
-    addiu $t1, $t1, 1          # increment counter
-    sll $t3, $t1, 6           # calculate the word index
-    la $t0,array_from_buffer
-    addu $t0, $t0, $t3        # move to the next array cell
-    j print_loop              # jump to the beginning of the loop
-
-done_printing:
- li $v0, 11                # syscall code for printing a character
-    li $a0, '\n'            # load the byte to print into $a0
-    syscall
-    jr $ra
 check_if_word_is_in_dictionary:
     # Input string in $a0 and string to compare with in $a1
     move $t0, $a0  # Array address
     move $t1, $a1  # Dictionary buffer address
+    li $t9,1 #line that word is found in is its code
 
-    # Initialize $t6 to 0, assuming the word is not in the dictionary
 restart_search:
+    #print the line we are searching in
     li $t6, 1
 
 start_search:
@@ -501,6 +605,7 @@ loop_until_newline:
 
 increment_dictionary_address:
     move $t0, $a0
+    addiu $t9,$t9,1
     addiu $t1, $t1, 1
     j restart_search
     #we reset the array address to the beginning of the array
@@ -509,13 +614,17 @@ word_is_in_dictionary:
     # If $t6 == 1, then the word is in the dictionary
     # If $t6 == 0, then the word is not in the dictionary
     move $v0, $t6  # Set the return value to $t6 indicating if the word is in the dictionary
+    move $v1, $t9
     jr $ra
 
 done_search:
     # If $t6 == 1, then the word is in the dictionary
     # If $t6 == 0, then the word is not in the dictionary
     move $v0, $t6  # Set the return value to $t6 indicating if the word is in the dictionary
+     move $v1, $t9
     jr $ra
+check_if_word_is_in_dictionary_end:
+
 
 #procedure to find end of dictionary
 find_end_of_dictionary:
@@ -550,16 +659,53 @@ append_loop:
     addiu $t1,$t1,1
     j append_loop
 done_append:
+    sb $t2,($t0)
     sb $zero,1($t0)
     move $s2,$t0 #dictionary buffer address
     move $t1,$a0
     #number of charachters is stored in $t1
     #address difference is stored in $t3
     jr $ra
+append_word_to_dictionary_end:
 
-
-
+convertToHex:
+	#first we format
+	li $t0,'0'
+	li $t1,'x'
+	sb $t0,($a1)
+	sb $t1,1($a1)
 	
+	andi $t0,$a0,15
+	lb $t2,numbers($t0)
+	sb $t2,6($a1)
+	srl $a0,$a0,4
+	
+	andi $t0,$a0,15
+	lb $t2,numbers($t0)
+	sb $t2,5($a1)
+	srl $a0,$a0,4
+	
+	andi $t0,$a0,15
+	lb $t2,numbers($t0)
+	sb $t2,4($a1)
+	srl $a0,$a0,4
+	
+	andi $t0,$a0,15
+	lb $t2,numbers($t0)
+	sb $t2,3($a1)
+	srl $a0,$a0,4
+	
+	andi $t0,$a0,15
+	lb $t2,numbers($t0)
+	sb $t2,2($a1)
+	
+	li $t0,'\n'
+	sb $t0,7($a1)
+
+	jr $ra
+convertToHex_end:	
+    
+
 #DATA SECTION
 .data
 
@@ -571,9 +717,15 @@ decompress:      .asciiz   "DECOMPRESS"
 quit:      .asciiz   "QUIT"
 option:	.space 100              #Allocate memory for file path buffer
 file_path:      .space 256           # Allocate memory for file path buffer
-file_contents:  .space 2048          # Allocate memory for file contents
 compression_path: .space 256        #path to the file that we want to compress
-c_file_contents: .space 2048        #path to the compressed file
+c_file_contents: .space 3200        #path to the compressed file
 dictionary_buffer: .space 6400
-array_from_buffer: .space 3200 # can store up to 50 words 
-
+array_from_buffer: .space 6400 # can store up to 50 words 
+#each code is 2 bytes and we need 50 words to give codes for so size of codes array is 100 bytes
+codes_array: .space 1024
+compressed_file_path: .asciiz "compressed.txt"
+hex_codes: .space 1024 #max unique words are just 50
+numbers: .asciiz "0123456789ABCDEF"
+new_file_path:      .space 256           # Allocate memory for the created file path buffer
+decompression_buffer: .space 3200
+decompressed_file: .asciiz "decompressed.txt"
